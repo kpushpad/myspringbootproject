@@ -4,8 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 
-//Uncomment to run Student and courese
-//@SpringBootApplication
+@SpringBootApplication
 public class KvStoreBootApplication {
 
     public static void main(String[] args) {

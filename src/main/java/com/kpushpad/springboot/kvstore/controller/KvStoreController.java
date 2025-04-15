@@ -6,6 +6,8 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+
 @RestController
 @RequestMapping("/kvstore")
 public class KvStoreController {
@@ -25,7 +27,7 @@ public class KvStoreController {
     }
 
     @RequestMapping(value = "/{key}", method = RequestMethod.DELETE)
-    public  String  deleteByKey(@PathVariable String key) {
+    public  String  deleteByKey(@PathVariable String key) throws IOException {
         String v = kvStoreBusinessServ.delete(key);
         return v == null ? "nil" : v;
     }

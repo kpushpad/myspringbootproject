@@ -1,6 +1,8 @@
 package com.kpushpad.springboot.kvstore.model;
 
-public class CacheEntry<K , V> {
+import java.io.Serializable;
+
+public class CacheEntry<K , V> implements Serializable {
     private final K key;
     private final ValueWithTTL<V> value;
 

@@ -3,6 +3,8 @@ package com.kpushpad.springboot.kvstore.common;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,10 +61,31 @@ public class FileService {
         }
     }
 
+    public void moveToBackupFile(String filename,String newFileName) throws IOException {
+        File orignalFile = new File(filename);
+        File renamedFile = new File(newFileName);
+        Files.move(orignalFile.toPath(), renamedFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    }
+
     // Flush file content to DISK.
     public void flushToDisk(String filename) throws IOException {
+        BufferedWriter writer = openWriters.get(filename);
+        writer.flush();
         FileOutputStream fos = flushWriters.get(filename);
+        System.out.println("fos: " + fos);
         fos.getFD().sync();
+    }
+
+    public Long getFileSize(String filename) throws IOException {
+        return Files.size(new File(filename).toPath());
+    }
+
+    public boolean fileIsoOpenForWriting(String filename) {
+        return openWriters.get(filename) != null;
+    }
+
+    public boolean fileIsoOpenForReading(String filename) {
+        return openReaders.get(filename) != null;
     }
 
 }

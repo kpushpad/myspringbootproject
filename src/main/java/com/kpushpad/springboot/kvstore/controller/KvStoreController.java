@@ -1,45 +1,65 @@
 package com.kpushpad.springboot.kvstore.controller;
 
 import com.kpushpad.springboot.kvstore.model.KvRequest;
+import com.kpushpad.springboot.kvstore.model.ValueWithTTL;
+import com.kpushpad.springboot.kvstore.service.CacheRestoreService;
 import com.kpushpad.springboot.kvstore.service.KvStoreBusinessServ;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.Iterator;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/kvstore")
 public class KvStoreController {
 
     private final KvStoreBusinessServ<String, String> kvStoreBusinessServ;
+    private final CacheRestoreService cacheRestoreService;
 
     @Autowired
-     KvStoreController(KvStoreBusinessServ<String, String> kvStoreBusinessServ) {
+    KvStoreController(KvStoreBusinessServ<String, String> kvStoreBusinessServ,
+                      CacheRestoreService cacheRestoreService) {
         this.kvStoreBusinessServ = kvStoreBusinessServ;
+        this.cacheRestoreService = cacheRestoreService;
     }
 
 
     @RequestMapping(value = "/{key}", method = RequestMethod.GET)
-    public  String  getValueByKey(@PathVariable String key) {
+    public  ResponseEntity<String>  getValueByKey(@PathVariable String key) {
+        if (!cacheRestoreService.isApplicationReadToUse())
+            return returnError();
         String v = kvStoreBusinessServ.get(key);
-        return v == null ? "nil" : v;
+        return ResponseEntity.ok(v == null ? "nil" : v);
     }
 
     @RequestMapping(value = "/{key}", method = RequestMethod.DELETE)
-    public  String  deleteByKey(@PathVariable String key) throws IOException {
+    public  ResponseEntity<String>  deleteByKey(@PathVariable String key) throws IOException {
+        if (!cacheRestoreService.isApplicationReadToUse())
+            return returnError();
+
         String v = kvStoreBusinessServ.delete(key);
-        return v == null ? "nil" : v;
+        return ResponseEntity.ok(v == null ? "nil" : v);
     }
 
     @PostMapping
-    public boolean putByValue(@RequestBody KvRequest request) {
-        return kvStoreBusinessServ.put(request.getKey(), request.getValue(), request.getTtl());
+    public ResponseEntity<String> putByValue(@RequestBody KvRequest request) {
+        if (!cacheRestoreService.isApplicationReadToUse())
+            return returnError();
+
+        String value = Boolean.TRUE
+                .equals(kvStoreBusinessServ.put(request.getKey(), request.getValue(), request.getTtl()))
+                ?  "1" : "nil";
+        return ResponseEntity.ok(value);
     }
 
-    @PostConstruct
-    public void init() {
-        // This method runs once, after the bean is initialized
-        kvStoreBusinessServ.put("test", "test", 100L);
+    public ResponseEntity<String> returnError() {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("Service is not ready yet to be used: ");
     }
+
 }

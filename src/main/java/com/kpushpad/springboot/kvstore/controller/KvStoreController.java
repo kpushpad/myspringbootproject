@@ -1,18 +1,15 @@
 package com.kpushpad.springboot.kvstore.controller;
 
 import com.kpushpad.springboot.kvstore.model.KvRequest;
-import com.kpushpad.springboot.kvstore.model.ValueWithTTL;
 import com.kpushpad.springboot.kvstore.service.CacheRestoreService;
 import com.kpushpad.springboot.kvstore.service.KvStoreBusinessServ;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/kvstore")
@@ -57,9 +54,23 @@ public class KvStoreController {
         return ResponseEntity.ok(value);
     }
 
+
+    @RequestMapping(value = "/keys", method = RequestMethod.GET)
+    public  ResponseEntity<List<String>>  getAllKeys() {
+        if (!cacheRestoreService.isApplicationReadToUse())
+            return returnErrorList();
+
+        return ResponseEntity.ok(kvStoreBusinessServ.getAllKeys());
+    }
+
     public ResponseEntity<String> returnError() {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Service is not ready yet to be used: ");
+    }
+
+    public ResponseEntity<List<String>> returnErrorList() {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Collections.singletonList("Service is not ready yet to be used: "));
     }
 
 }

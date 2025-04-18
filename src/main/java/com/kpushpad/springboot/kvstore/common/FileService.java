@@ -1,5 +1,6 @@
 package com.kpushpad.springboot.kvstore.common;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
@@ -8,6 +9,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class FileService {
 
@@ -72,7 +74,6 @@ public class FileService {
         BufferedWriter writer = openWriters.get(filename);
         writer.flush();
         FileOutputStream fos = flushWriters.get(filename);
-        System.out.println("fos: " + fos);
         fos.getFD().sync();
     }
 
@@ -82,10 +83,6 @@ public class FileService {
 
     public boolean fileIsoOpenForWriting(String filename) {
         return openWriters.get(filename) != null;
-    }
-
-    public boolean fileIsoOpenForReading(String filename) {
-        return openReaders.get(filename) != null;
     }
 
 }

@@ -1,81 +1,95 @@
 package com.kpushpad.springboot.kvstore.service;
 
-import com.kpushpad.springboot.kvstore.common.FileService;
+import com.kpushpad.springboot.kvstore.model.CacheEntry;
 import com.kpushpad.springboot.kvstore.model.ValueWithTTL;
-import jakarta.annotation.PostConstruct;
-import org.hibernate.annotations.Synchronize;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
+@Slf4j
 @Service
 public class KvStoreBusinessServ<K,V> {
 
     private final KvStoreService<K,V> kvStoreService;
-    private final FileService fileService;
-    private final CacheAofUtil cacheAofUtil;
+    private final CacheAOFLogService cacheAOFLogService;
 
     @Autowired
-    public KvStoreBusinessServ(KvStoreService<K,V> kvStoreService, FileService fileService,
-                               CacheAofUtil cacheAofUtil) {
+    public KvStoreBusinessServ(KvStoreService<K,V> kvStoreService, CacheAOFLogService cacheAOFLogService) {
         this.kvStoreService = kvStoreService;
-        this.fileService = fileService;
-        this.cacheAofUtil = cacheAofUtil;
+        this.cacheAOFLogService = cacheAOFLogService;
     }
+
+    public V get(K key) {return kvStoreService.get(key);}
+
     public  boolean put(K key, V value, Long ttl) {
-        long newTtl;
         try {
-            if (null != ttl) {
-                newTtl = System.currentTimeMillis() + ttl*1000;
-            } else {
-                newTtl = Long.MAX_VALUE;
-            }
+            long newTtl = getExpiryTime(ttl);
+            CacheEntry<K,V> cacheEntry = new CacheEntry<>(key, new ValueWithTTL<>(value, newTtl));
             synchronized(this) {
-                ValueWithTTL<V> v = kvStoreService.putValue(key, value, newTtl);
-                kvStoreService.addToQueue(key, value, newTtl);
+                kvStoreService.put(cacheEntry);
+                kvStoreService.add(cacheEntry);
+                cacheAOFLogService.recordPutCommand(cacheEntry);
             }
-            fileService.writeLine(cacheAofUtil.getAofFilePath(),
-                    cacheAofUtil.getPutCmd(key.toString(), value.toString() ,
-                            String.valueOf(newTtl)));
             return true;
         } catch (Exception e) {
             return false;
         }
     }
 
-    public V get(K key) {
-        return kvStoreService.getValue(key) != null ?
-                kvStoreService.getValue(key).getKey() : null;
-    }
-
     public V  delete(K key) throws IOException {
-        fileService.writeLine(cacheAofUtil.getAofFilePath(),
-                cacheAofUtil.getDelCmd(key.toString()));
-        return kvStoreService.deleteValue(key) != null ?
-                kvStoreService.deleteValue(key).getKey() : null;
+        synchronized (this) {
+            V v = kvStoreService.delete(key);
+            cacheAOFLogService.recordDelCommand(new CacheEntry<>(key, new ValueWithTTL<>(v, 0L)));
+            return v;
+        }
     }
 
-    public Integer fillData(Map<K, ValueWithTTL<V>> map) {
+    public Integer fillData(Map<K, CacheEntry<K, V>> map) {
         kvStoreService.setKeyMap(map);
+        map.forEach((key, value) -> {
+            if (System.currentTimeMillis() > value.getValue().getExpiryTimeInMs()) {
+                kvStoreService.removeKey(key);
+            } else {
+                kvStoreService.add(value);
+            }
+        });
         map.clear();
         return kvStoreService.getSize();
     }
 
-    public void getAllKeys() {
-        Iterator<Map.Entry<K, ValueWithTTL<V>>> itr = kvStoreService.getItr();
-        while (itr.hasNext()) {
-            Map.Entry<K, ValueWithTTL<V>> entry = itr.next();
-            String key = entry.getKey().toString();
-            String value = entry.getValue().getKey().toString();
-            String ttl = entry.getValue().getExpiryTimeInMs().toString();
-            System.out.println(
-                    Arrays.asList(key, value , ttl).stream().collect(Collectors.joining(" ")));
+    public List<K> getAllKeys() {
+        Iterator<Map.Entry<K, CacheEntry<K, V>>> itr = kvStoreService.getItr();
+        return StreamSupport
+                .stream(Spliterators.spliteratorUnknownSize(itr, Spliterator.ORDERED), false)
+                .filter(k -> k.getValue().getValue().getExpiryTimeInMs() > System.currentTimeMillis())
+                .map(Map.Entry::getKey) // extract only keys
+                .collect(Collectors.toList());
+    }
+
+    public boolean removeTopExpiredValues() {
+        CacheEntry<K, V> value = kvStoreService.getTop();
+        if (value != null && value.getValue().getExpiryTimeInMs() < System.currentTimeMillis()) {
+            kvStoreService.removeTop();
+            kvStoreService.removeKey(value.getKey());
+            return true;
+        }
+        return false;
+    }
+    public Integer getTotalKeysCount() {
+        return kvStoreService.getSize();
+    }
+
+    private Long getExpiryTime(Long ttl) {
+        if (null != ttl && !ttl.equals(Long.MAX_VALUE)) {
+            return System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ttl);
+        } else {
+            return Long.MAX_VALUE;
         }
     }
 }

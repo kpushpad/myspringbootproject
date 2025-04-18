@@ -1,6 +1,6 @@
 package com.kpushpad.springboot.kvstore.common;
 
-import com.kpushpad.springboot.kvstore.service.CacheAofUtil;
+import com.kpushpad.springboot.kvstore.service.CacheAOFLogService;
 import com.kpushpad.springboot.kvstore.service.CacheCleanExpKeysService;
 import com.kpushpad.springboot.kvstore.service.CacheDBSnapshotService;
 import com.kpushpad.springboot.kvstore.service.KvStoreService;
@@ -12,15 +12,15 @@ import java.io.IOException;
 public class CommonFacadeServ {
     private final CacheCleanExpKeysService cacheCleanExpKeysService;
     private final FileService fileService;
-    private final CacheAofUtil cacheAofUtil;
+    private final CacheAOFLogService cacheAOFLogService;
     private final KvStoreService kvStoreService;
     private final CacheDBSnapshotService cacheDBSnapshotService;
 
     public CommonFacadeServ(CacheCleanExpKeysService cacheCleanExpKeysService, FileService fileService,
-                            CacheAofUtil cacheAofUtil, KvStoreService kvStoreService, CacheDBSnapshotService cacheDBSnapshotService) {
+                            CacheAOFLogService cacheAOFLogService, KvStoreService kvStoreService, CacheDBSnapshotService cacheDBSnapshotService) {
         this.cacheCleanExpKeysService = cacheCleanExpKeysService;
         this.fileService = fileService;
-        this.cacheAofUtil = cacheAofUtil;
+        this.cacheAOFLogService = cacheAOFLogService;
         this.kvStoreService = kvStoreService;
         this.cacheDBSnapshotService = cacheDBSnapshotService;
     }
@@ -30,16 +30,15 @@ public class CommonFacadeServ {
         if (totalKeys > 0) {
             cacheCleanExpKeysService.cleanUpExpiredCacheEntry();
         }
-        cacheAofUtil.rotateAofFile();
+        cacheAOFLogService.rotateAofFile();
         if (totalKeys > 0) {
             cacheDBSnapshotService.saveSnapShot(kvStoreService.getKeyMap());
         }
     }
 
-
     public void flushAofBackupFileContent() throws IOException {
         if (getTotalKeys() > 0) {
-            fileService.flushToDisk(cacheAofUtil.getAofFilePath());
+            fileService.flushToDisk(cacheAOFLogService.getAofFilePath());
         }
     }
 

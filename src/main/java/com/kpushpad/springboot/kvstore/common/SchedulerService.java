@@ -35,11 +35,11 @@ public class SchedulerService {
     }
 
     private void cleanUpExpiredValue() {
-        System.out.println("Running cleanup Thread :" + System.currentTimeMillis());
+        log.debug("Running cleanup Thread :{}", System.currentTimeMillis());
         try {
             commonFacadeServ.cleanExpKeysAndTakeSnapshotWithRotation();
         } catch(Exception e) {
-            System.out.println("Exp occurred in cleanUpExpiredValue" + e.getLocalizedMessage());
+            log.debug("Exp occurred in cleanUpExpiredValue{}", e.getLocalizedMessage());
             e.getStackTrace();
         }
     }
@@ -48,7 +48,7 @@ public class SchedulerService {
         try {
             commonFacadeServ.flushAofBackupFileContent();
         } catch (Exception e) {
-            System.out.println("Exp occurred in flushAofFile " +  e.getLocalizedMessage());
+            log.debug("Exp occurred in flushAofFile {}", e.getLocalizedMessage());
             e.getStackTrace();
         }
     }

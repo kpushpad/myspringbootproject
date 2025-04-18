@@ -2,7 +2,7 @@ package com.kpushpad.springboot.kvstore.service;
 
 import com.kpushpad.springboot.kvstore.common.FileService;
 import com.kpushpad.springboot.kvstore.constant.CommonConstant;
-import com.kpushpad.springboot.kvstore.model.ValueWithTTL;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -10,11 +10,13 @@ import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
+@Slf4j
 @Component
 public class CacheRestoreService {
-    private final CacheAofUtil cacheAofUtil;
+    private final CacheAOFLogService cacheAOFLogService;
     private final FileService fileService;
     private final KvStoreBusinessServ kvStoreBusinessServ;
     private final CacheDBSnapshotService cacheDBSnapshotService;
@@ -27,10 +29,10 @@ public class CacheRestoreService {
     private boolean isApplicationReadToUse = false;
 
     @Autowired
-    public CacheRestoreService(CacheAofUtil cacheAofUtil, FileService fileService,
+    public CacheRestoreService(CacheAOFLogService cacheAOFLogService, FileService fileService,
                                KvStoreBusinessServ kvStoreBusinessServ,
                                CacheDBSnapshotService cacheDBSnapshotService) {
-        this.cacheAofUtil = cacheAofUtil;
+        this.cacheAOFLogService = cacheAOFLogService;
         this.fileService = fileService;
         this.kvStoreBusinessServ = kvStoreBusinessServ;
         this.cacheDBSnapshotService = cacheDBSnapshotService;
@@ -38,23 +40,23 @@ public class CacheRestoreService {
 
     @EventListener(ApplicationReadyEvent.class)
     public void restore() throws Exception {
-        System.out.println("Started restoration....");
+        log.debug("Started restoration....");
         // Read Snapshot file
         if (cacheDBSnapshotService.snapShotFileExist()) {
-            Map<String, ValueWithTTL<String>> map = cacheDBSnapshotService.readSnapShot();
+            Map map = cacheDBSnapshotService.readSnapShot();
             Integer count = kvStoreBusinessServ.fillData(map);
-            System.out.println("Loaded " + count + " keys from Snapshot DB files");
+            log.debug("Loaded {} keys from Snapshot DB files", count);
         }
 
-        String aofFilePath = cacheAofUtil.getAofFilePath();
-        Long currentTime = System.currentTimeMillis();
+        String aofFilePath = cacheAOFLogService.getAofFilePath();
+        long currentTime = System.currentTimeMillis();
         try {
-            if (cacheAofUtil.logFileExit()) {
+            if (cacheAOFLogService.logFileExit()) {
                 fileService.openForReading(aofFilePath);
                 String line = fileService.readLine(aofFilePath);
                 while (line != null) {
-                    Pair<Integer, Map<String, String>> pair = cacheAofUtil.parseCommand(line);
-                    Long expiryTime = Long.parseLong(pair.getSecond().get(CommonConstant.TTL));
+                    Pair<Integer, Map<String, String>> pair = cacheAOFLogService.parseCommand(line);
+                    long expiryTime = Long.parseLong(pair.getSecond().get(CommonConstant.TTL));
                     if (pair.getFirst().equals(CommonConstant.PUT)) {
                         if (expiryTime > currentTime) {
                             kvStoreBusinessServ.put(pair.getSecond().get(CommonConstant.KEY),
@@ -65,23 +67,22 @@ public class CacheRestoreService {
                         }
                     }
                     line = fileService.readLine(aofFilePath);
-                    fileService.closeReader(aofFilePath);
-                    fileService.moveToBackupFile(aofFilePath, cacheAofUtil.getBackUpFileName(aofFilePath));
-                    fileService.openForWriting(cacheAofUtil.getAofFilePath(), true);
                 }
-
+                fileService.closeReader(aofFilePath);
+                fileService.moveToBackupFile(aofFilePath, cacheAOFLogService.getBackUpFileName(aofFilePath));
+                fileService.openForWriting(cacheAOFLogService.getAofFilePath(), true);
             }
         } catch(IOException e){
-            System.out.println("Error found during restoration" + e.getStackTrace());
+            log.error("Error found during restoration{}", Arrays.toString(e.getStackTrace()));
+            fileService.closeReader(aofFilePath);
         }
-        if (!fileService.fileIsoOpenForWriting(cacheAofUtil.getAofFilePath())) {
-            fileService.openForWriting(cacheAofUtil.getAofFilePath(), true);
+        if (!fileService.fileIsoOpenForWriting(cacheAOFLogService.getAofFilePath())) {
+            fileService.openForWriting(cacheAOFLogService.getAofFilePath(), true);
         }
         if (!fileService.fileIsoOpenForWriting(cacheDBSnapshotService.getFilePath())) {
             fileService.openForWriting(cacheDBSnapshotService.getFilePath(), true);
         }
         isApplicationReadToUse = true;
-        fileService.closeReader(aofFilePath);
-        System.out.println("Completed restoration....");
+        log.debug("Completed restoration....");
     }
 }

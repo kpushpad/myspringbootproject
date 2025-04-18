@@ -2,6 +2,7 @@ package com.kpushpad.springboot.kvstore.serdser;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpushpad.springboot.kvstore.model.CacheEntry;
 import com.kpushpad.springboot.kvstore.model.ValueWithTTL;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
@@ -15,9 +16,6 @@ import java.util.Map;
 @Slf4j
 @Service
 public class JsonSerDser implements  SerialzDSer{
-
-    private static final Logger log = LoggerFactory.getLogger(JsonSerDser.class);
-
     @Override
     public void serialize(String file, Object obj) throws IOException {
         File fHandle = new File(file);
@@ -31,7 +29,8 @@ public class JsonSerDser implements  SerialzDSer{
     @Override
     public Object dSerialize(String file) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
-        TypeReference<Map<String, ValueWithTTL<String>>> typeRef = new TypeReference<>() {};
+
+        TypeReference<Map<String, CacheEntry>> typeRef = new TypeReference<>() {};
         return mapper.readValue(new File(file), typeRef);
     }
 }

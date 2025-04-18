@@ -2,6 +2,9 @@ package com.kpushpad.springboot.kvstore.service;
 
 import com.kpushpad.springboot.kvstore.common.FileService;
 import com.kpushpad.springboot.kvstore.constant.CommonConstant;
+import com.kpushpad.springboot.kvstore.model.CacheEntry;
+import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.util.Pair;
@@ -14,22 +17,26 @@ import java.util.Map;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 
+@Slf4j
 @Service
-public class CacheAofUtil {
+public class CacheAOFLogService {
     private static final String PUT = "PUT";
     private static final String DEL = "DEL";
 
-    private  final FileService fileService;
+    private final FileService fileService;
     private final String filePath;
+    private String baseFileName = null;
 
     @Autowired
-    public CacheAofUtil(FileService fileService, @Value("${kvstore.aof.file.path}")String filePath) {
+    public CacheAOFLogService(FileService fileService, @Value("${kvstore.aof.file.path}") String filePath) {
         this.fileService = fileService;
         this.filePath = filePath;
+        this.baseFileName = filePath.contains(".")
+                ? filePath.substring(0, filePath.lastIndexOf('.')) : filePath;
     }
 
     public String getPutCmd(String key, String value, String ttl) {
-        return "PUT " + key  + " " + value + " "  + ttl;
+        return "PUT " + key + " " + value + " " + ttl;
     }
 
     public String getDelCmd(String key) {
@@ -41,11 +48,11 @@ public class CacheAofUtil {
     }
 
     public String getBackUpFileName(String filename) {
-        return ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + ".bk";
+        return baseFileName + "_" + ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME) + ".bk";
     }
 
     public Pair<Integer, Map<String, String>> parseCommand(String cmd) {
-        Map<String, String> map  = new HashMap<>();
+        Map<String, String> map = new HashMap<>();
         if (cmd.contains(PUT)) {
             String[] tokens = cmd.trim().split(" +");
             map.put(CommonConstant.KEY, tokens[1]);
@@ -62,15 +69,31 @@ public class CacheAofUtil {
 
     public boolean logFileExit() {
         File file = new File(filePath);
-        return file.exists();
+        return file.exists() && file.length() > 0;
     }
 
     public void rotateAofFile() throws IOException {
         if (fileService.getFileSize(filePath) > 0) {
             fileService.flushToDisk(filePath);
             fileService.closeWriter(filePath);
-            fileService.openForWriting(filePath, true);
             fileService.moveToBackupFile(filePath, getBackUpFileName(filePath));
+            fileService.openForWriting(filePath, true);
         }
+    }
+
+    public <K, V> void recordPutCommand(CacheEntry<K,V> entry) throws IOException {
+        fileService.writeLine(filePath, getPutCmd(entry.getKey().toString(), entry.getValue().getKey().toString(),
+                entry.getValue().getExpiryTimeInMs().toString()));
+    }
+
+    public <K, V> void recordDelCommand(CacheEntry<K,V> entry) throws IOException  {
+        fileService.writeLine(filePath,getDelCmd(entry.getValue().toString()));
+    }
+
+    @PreDestroy
+    public void onShutdown() throws IOException {
+        log.debug("Application is shutting down..... . Flushing AOF file context");
+        fileService.flushToDisk(filePath);
+        fileService.closeWriter(filePath);
     }
 }

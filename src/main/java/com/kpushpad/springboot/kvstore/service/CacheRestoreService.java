@@ -56,8 +56,8 @@ public class CacheRestoreService {
                 String line = fileService.readLine(aofFilePath);
                 while (line != null) {
                     Pair<Integer, Map<String, String>> pair = cacheAOFLogService.parseCommand(line);
-                    long expiryTime = Long.parseLong(pair.getSecond().get(CommonConstant.TTL));
                     if (pair.getFirst().equals(CommonConstant.PUT)) {
+                        long expiryTime = Long.parseLong(pair.getSecond().get(CommonConstant.TTL));
                         if (expiryTime > currentTime) {
                             kvStoreBusinessServ.put(pair.getSecond().get(CommonConstant.KEY),
                                     pair.getSecond().get(CommonConstant.VALUE),

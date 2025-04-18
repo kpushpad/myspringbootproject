@@ -87,7 +87,7 @@ public class CacheAOFLogService {
     }
 
     public <K, V> void recordDelCommand(CacheEntry<K,V> entry) throws IOException  {
-        fileService.writeLine(filePath,getDelCmd(entry.getValue().toString()));
+        fileService.writeLine(filePath,getDelCmd(entry.getKey().toString()));
     }
 
     @PreDestroy

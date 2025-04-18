@@ -4,10 +4,12 @@ import com.kpushpad.springboot.kvstore.service.CacheAOFLogService;
 import com.kpushpad.springboot.kvstore.service.CacheCleanExpKeysService;
 import com.kpushpad.springboot.kvstore.service.CacheDBSnapshotService;
 import com.kpushpad.springboot.kvstore.service.KvStoreService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
+@Slf4j
 @Service
 public class CommonFacadeServ {
     private final CacheCleanExpKeysService cacheCleanExpKeysService;
@@ -32,6 +34,7 @@ public class CommonFacadeServ {
         }
         cacheAOFLogService.rotateAofFile();
         if (totalKeys > 0) {
+            log.debug("********Taking snapshot of total keys {}***********", totalKeys);
             cacheDBSnapshotService.saveSnapShot(kvStoreService.getKeyMap());
         }
     }

@@ -35,7 +35,6 @@ public class SchedulerService {
     }
 
     private void cleanUpExpiredValue() {
-        log.debug("Running cleanup Thread :{}", System.currentTimeMillis());
         try {
             commonFacadeServ.cleanExpKeysAndTakeSnapshotWithRotation();
         } catch(Exception e) {

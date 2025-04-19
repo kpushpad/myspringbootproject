@@ -63,6 +63,13 @@ public class KvStoreController {
         return ResponseEntity.ok(kvStoreBusinessServ.getAllKeys());
     }
 
+    @RequestMapping(value = "/totalKeys", method = RequestMethod.GET)
+    public  ResponseEntity<String>  getTotalKeys() {
+        if (!cacheRestoreService.isApplicationReadToUse())
+            return returnError();
+        return ResponseEntity.ok(kvStoreBusinessServ.getTotalKeysCount().toString());
+    }
+
     public ResponseEntity<String> returnError() {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Service is not ready yet to be used: ");

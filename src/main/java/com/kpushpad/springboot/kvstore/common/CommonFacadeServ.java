@@ -30,8 +30,10 @@ public class CommonFacadeServ {
     public void cleanExpKeysAndTakeSnapshotWithRotation() throws Exception {
         Integer totalKeys = getTotalKeys();
         if (totalKeys > 0) {
+            log.debug("********Cleanup expired keys {}***********", totalKeys);
             cacheCleanExpKeysService.cleanUpExpiredCacheEntry();
         }
+        totalKeys = getTotalKeys();
         cacheAOFLogService.rotateAofFile();
         if (totalKeys > 0) {
             log.debug("********Taking snapshot of total keys {}***********", totalKeys);

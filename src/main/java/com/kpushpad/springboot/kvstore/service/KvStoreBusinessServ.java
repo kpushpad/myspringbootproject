@@ -86,10 +86,12 @@ public class KvStoreBusinessServ<K,V> {
     }
 
     private Long getExpiryTime(Long ttl) {
+        Long l = null;
         if (null != ttl && !ttl.equals(Long.MAX_VALUE)) {
-            return System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ttl);
+             l =  System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ttl);
         } else {
-            return Long.MAX_VALUE;
+             l = Long.MAX_VALUE;
         }
+        return l;
     }
 }
